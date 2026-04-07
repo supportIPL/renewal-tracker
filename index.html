@@ -370,7 +370,7 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(247,
 // ══════════════════════════════════════════════
 //  CONFIGURATION — Your Apps Script Web App URL
 // ══════════════════════════════════════════════
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwknfN3R4YVHmaJWBJEz7dvfKSuekcGyjZZg23v_Dzo0nmrs_34mNNZhxSkdS-tsHf_/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwcluGJ6IhFGAkYJ2bvv-NDJV2PYup8SXd1osb0_hiZohvfWKZgIwitKSmg8cSVzxzc5g/exec";
 
 // ══════════════════════════════════════════════
 //  STATE
@@ -383,33 +383,52 @@ const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 
 // ══════════════════════════════════════════════
 //  CORE JSONP HELPER — ALL requests go through here
-//  This is the ONLY way to call Apps Script from
-//  a browser without hitting CORS errors.
+//
+//  KEY FACTS about Google Apps Script + JSONP:
+//  1. Apps Script Web App URLs do a 302 redirect internally.
+//     The <script> tag follows this automatically — params survive.
+//  2. Apps Script auto-decodes URL params before handing them
+//     to doGet(e). Do NOT double-encode values.
+//  3. Use URLSearchParams so encoding is handled correctly.
 // ══════════════════════════════════════════════
 function callJsonp(params) {
   return new Promise((resolve, reject) => {
     const cbName = 'cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    const qs = Object.entries(params)
-      .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v))
-      .join('&');
+
+    // Build query string — callback always first, then other params
+    // URLSearchParams handles encoding correctly (no double-encode)
+    const urlParams = new URLSearchParams();
+    urlParams.set('callback', cbName);
+    for (const [k, v] of Object.entries(params)) {
+      urlParams.set(k, v);
+    }
+
+    const url = WEB_APP_URL + '?' + urlParams.toString();
+    console.log('[JSONP] Calling:', url);
+
     const script = document.createElement('script');
-    script.src = WEB_APP_URL + '?callback=' + cbName + '&' + qs;
+    script.src = url;
+
     script.onerror = () => {
       delete window[cbName];
-      document.body.removeChild(script);
-      reject(new Error('Script load failed'));
+      if (document.body.contains(script)) document.body.removeChild(script);
+      reject(new Error('Script load failed — check the WEB_APP_URL and deployment settings'));
     };
+
     window[cbName] = (data) => {
       delete window[cbName];
       if (document.body.contains(script)) document.body.removeChild(script);
+      console.log('[JSONP] Response:', data);
       resolve(data);
     };
+
     document.body.appendChild(script);
+
     setTimeout(() => {
       if (window[cbName]) {
         delete window[cbName];
         if (document.body.contains(script)) document.body.removeChild(script);
-        reject(new Error('Request timed out'));
+        reject(new Error('Request timed out after 20s'));
       }
     }, 20000);
   });
@@ -537,6 +556,8 @@ async function saveRow(){
 
   try {
     // ✅ JSONP GET — no CORS issues
+    // Pass the JSON string directly; callJsonp uses URLSearchParams
+    // which correctly encodes it — do NOT manually encodeURIComponent here
     const result = await callJsonp({
       action : 'addRow',
       data   : JSON.stringify(rowData)
