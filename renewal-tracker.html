@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wakar Technology — Renewal Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#F7BF4F;--gold-dark:#d9a030;--gold-pale:#fdf3d8;--gold-border:#f0c96a;
+  --brown:#271801;--brown-mid:#4a2f06;--brown-light:#7a4f1a;
+  --bg:#fff8ee;--surface:#fffdf7;--card:#ffffff;
+  --text:#1a0f00;--muted:#7a5c2e;--subtle:#c8a96e;
+  --danger:#c0392b;--success:#16a34a;--warn:#d97706;
+  --radius:12px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.shell{display:flex;min-height:100vh;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:230px;background:var(--brown);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;height:100vh;z-index:50;}
+.logo{padding:28px 22px 20px;border-bottom:1px solid rgba(247,191,79,0.15);}
+.logo-icon{width:38px;height:38px;background:var(--gold);border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+.logo-icon svg{width:21px;height:21px;}
+.logo h1{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#fff;letter-spacing:.02em;line-height:1.3;}
+.logo p{font-size:11px;color:rgba(247,191,79,0.55);margin-top:3px;}
+.nav{flex:1;padding:14px 0;overflow-y:auto;}
+.nav-section{padding:14px 22px 6px;font-size:10px;color:rgba(247,191,79,0.35);letter-spacing:.1em;text-transform:uppercase;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 22px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.55);transition:all .18s;border-left:2px solid transparent;user-select:none;}
+.nav-item:hover{color:#fff;background:rgba(247,191,79,0.07);}
+.nav-item.active{color:var(--gold);border-left-color:var(--gold);background:rgba(247,191,79,0.10);}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;}
+.nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:20px;text-align:center;}
+.nav-badge.warn{background:var(--warn);}
+.sidebar-footer{padding:16px 22px;border-top:1px solid rgba(247,191,79,0.1);}
+.conn-status{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:#666;flex-shrink:0;transition:background .3s;}
+.conn-dot.online{background:var(--success);}
+.conn-dot.loading{background:var(--warn);animation:pulse 1s infinite;}
+.conn-dot.error{background:var(--danger);}
+.conn-label{font-size:11px;color:rgba(255,255,255,0.4);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.tag-gas{display:inline-block;background:rgba(247,191,79,0.12);color:rgba(247,191,79,0.7);border:1px solid rgba(247,191,79,0.2);border-radius:4px;font-size:10px;font-weight:700;padding:2px 7px;letter-spacing:.04em;}
+
+/* ── MAIN ── */
+.main{flex:1;margin-left:230px;display:flex;flex-direction:column;min-height:100vh;}
+.topbar{background:var(--surface);border-bottom:1.5px solid var(--gold-border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.topbar-left h2{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--brown);}
+.topbar-left p{font-size:12px;color:var(--muted);margin-top:2px;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .18s;font-family:'DM Sans',sans-serif;}
+.btn-primary{background:var(--gold);color:var(--brown);font-weight:700;}
+.btn-primary:hover{background:var(--gold-dark);color:#fff;}
+.btn-outline{background:transparent;color:var(--brown);border:1.5px solid var(--gold-border);}
+.btn-outline:hover{background:var(--gold-pale);}
+.btn-danger{background:#fee2e2;color:var(--danger);border:1px solid #fca5a5;}
+.btn-danger:hover{background:var(--danger);color:#fff;}
+.btn svg{width:14px;height:14px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.content{flex:1;padding:24px 28px;}
+
+/* ── STATS ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;}
+.stat-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--gold-border);padding:18px 20px;position:relative;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(247,191,79,0.15);}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.stat-card.gold::before{background:var(--gold);}
+.stat-card.red::before{background:var(--danger);}
+.stat-card.green::before{background:var(--success);}
+.stat-card.warn::before{background:var(--warn);}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+.stat-val{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:var(--brown);margin:4px 0 2px;}
+.stat-sub{font-size:11px;color:var(--subtle);}
+
+/* ── TABLE SECTION ── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+.section-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--brown);}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.search-box{display:flex;align-items:center;gap:6px;background:var(--card);border:1.5px solid var(--gold-border);border-radius:8px;padding:6px 12px;}
+.search-box input{border:none;outline:none;background:transparent;font-size:13px;color:var(--text);width:180px;font-family:'DM Sans',sans-serif;}
+.search-box input::placeholder{color:var(--subtle);}
+.filter-btn{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1.5px solid var(--gold-border);background:transparent;color:var(--muted);transition:all .15s;font-family:'DM Sans',sans-serif;}
+.filter-btn.active,.filter-btn:hover{background:var(--gold);color:var(--brown);border-color:var(--gold);font-weight:700;}
+
+/* ── TABLE ── */
+.table-wrap{background:var(--card);border:1.5px solid var(--gold-border);border-radius:var(--radius);overflow:hidden;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead{background:var(--gold-pale);}
+th{padding:11px 16px;text-align:left;font-size:10px;font-weight:700;color:var(--brown);text-transform:uppercase;letter-spacing:.08em;border-bottom:1.5px solid var(--gold-border);white-space:nowrap;}
+td{padding:11px 16px;border-bottom:1px solid rgba(247,191,79,0.12);color:var(--text);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(253,243,216,0.5);}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+.badge-domain{background:#ede9fe;color:#5b21b6;}
+.badge-hosting{background:#dbeafe;color:#1e40af;}
+.badge-ssl{background:#d1fae5;color:#065f46;}
+.badge-email{background:#fce7f3;color:#9d174d;}
+.badge-yes{background:#d1fae5;color:#065f46;}
+.badge-no{background:#fee2e2;color:#991b1b;}
+.badge-overdue-sent{background:#fef3c7;color:#92400e;}
+.days-chip{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;}
+.days-urgent{background:#fee2e2;color:#991b1b;}
+.days-warn{background:#fef3c7;color:#92400e;}
+.days-ok{background:#d1fae5;color:#065f46;}
+.days-over{background:#fde8e8;color:#b91c1c;}
+.action-btn{width:30px;height:30px;border-radius:7px;border:1.5px solid var(--gold-border);background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .15s;margin-right:4px;}
+.action-btn:hover{background:var(--gold);border-color:var(--gold);}
+.action-btn.del:hover{background:#fee2e2;border-color:#fca5a5;}
+.action-btn svg{width:13px;height:13px;color:var(--muted);}
+.action-btn:hover svg{color:var(--brown);}
+.action-btn.del:hover svg{color:var(--danger);}
+
+/* ── LOADING / EMPTY ── */
+.loading-row td{text-align:center;padding:40px;color:var(--muted);}
+.spinner{width:28px;height:28px;border:3px solid var(--gold-border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px 20px;color:var(--subtle);}
+.empty svg{width:38px;height:38px;margin:0 auto 10px;display:block;opacity:.35;}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(39,24,1,0.5);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--card);border-radius:16px;width:540px;max-width:96vw;border:1.5px solid var(--gold-border);overflow:hidden;transform:translateY(12px);transition:transform .2s;}
+.modal-overlay.open .modal{transform:translateY(0);}
+.modal-head{background:var(--brown);padding:20px 24px;display:flex;justify-content:space-between;align-items:center;}
+.modal-head h3{font-family:'Syne',sans-serif;font-size:15px;color:#fff;font-weight:700;}
+.modal-close{background:transparent;border:none;color:rgba(255,255,255,0.45);cursor:pointer;font-size:22px;line-height:1;padding:0 4px;}
+.modal-close:hover{color:#fff;}
+.modal-body{padding:24px;max-height:70vh;overflow-y:auto;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-group.full{grid-column:1/-1;}
+label{font-size:12px;font-weight:600;color:var(--muted);}
+input[type=text],input[type=email],input[type=date],select,input[type=number]{
+  padding:9px 12px;border:1.5px solid var(--gold-border);border-radius:8px;font-size:13px;
+  font-family:'DM Sans',sans-serif;color:var(--text);background:var(--surface);outline:none;transition:border .15s;
+}
+input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(247,191,79,0.15);}
+.info-box{margin-top:14px;padding:12px 14px;background:var(--gold-pale);border-radius:8px;border:1px solid var(--gold-border);font-size:12px;color:var(--brown-mid);line-height:1.6;}
+.modal-foot{padding:16px 24px;border-top:1px solid var(--gold-border);display:flex;justify-content:flex-end;gap:10px;background:var(--surface);}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;padding:13px 20px;border-radius:10px;font-size:13px;z-index:300;opacity:0;transform:translateY(10px);transition:all .25s;max-width:360px;line-height:1.4;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.success{background:var(--brown);color:#fff;border-left:3px solid var(--gold);}
+.toast.error{background:#7f1d1d;color:#fff;border-left:3px solid var(--danger);}
+.toast.info{background:#1e3a5f;color:#fff;border-left:3px solid #60a5fa;}
+
+/* ── SYNC BAR ── */
+.sync-bar{display:flex;align-items:center;justify-content:space-between;background:var(--gold-pale);border:1px solid var(--gold-border);border-radius:10px;padding:10px 16px;margin-bottom:20px;font-size:12px;color:var(--brown-mid);}
+.sync-bar span{display:flex;align-items:center;gap:7px;}
+.sync-bar svg{width:14px;height:14px;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .sidebar{width:200px;}
+  .main{margin-left:200px;}
+}
+@media(max-width:640px){
+  .sidebar{display:none;}
+  .main{margin-left:0;}
+  .stats-row{grid-template-columns:1fr 1fr;}
+  .content{padding:14px;}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ══ SIDEBAR ══ -->
+<div class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#271801" stroke-width="2.2">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <h1>Wakar Technology</h1>
+    <p>India Private Limited</p>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" data-page="all" onclick="setNav(this,'all')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      All Clients
+    </div>
+
+    <div class="nav-section">Renewals</div>
+    <div class="nav-item" data-page="upcoming" onclick="setNav(this,'upcoming')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Upcoming (30d)
+      <span class="nav-badge warn" id="nb-upcoming">0</span>
+    </div>
+    <div class="nav-item" data-page="overdue" onclick="setNav(this,'overdue')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Overdue
+      <span class="nav-badge" id="nb-overdue">0</span>
+    </div>
+    <div class="nav-item" data-page="sent" onclick="setNav(this,'sent')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Emails Sent
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="conn-status">
+      <div class="conn-dot loading" id="conn-dot"></div>
+      <span class="conn-label" id="conn-label">Connecting...</span>
+    </div>
+    <span class="tag-gas">Google Apps Script</span>
+  </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h2 id="page-title">All Clients</h2>
+      <p id="page-sub">Wakar Technology — Renewal Management System</p>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-outline" id="btn-refresh" onclick="loadData()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Refresh
+      </button>
+      <button class="btn btn-outline" onclick="openModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Client
+      </button>
+      <button class="btn btn-primary" onclick="triggerReminders()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send Reminders
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Sync bar -->
+    <div class="sync-bar" id="sync-bar">
+      <span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span id="sync-text">Loading data from Google Sheet...</span>
+      </span>
+      <span id="sync-time" style="color:var(--subtle);"></span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card gold" onclick="setNavByPage('all')">
+        <div class="stat-label">Total Clients</div>
+        <div class="stat-val" id="s-total">—</div>
+        <div class="stat-sub">in Renewal Tracker</div>
+      </div>
+      <div class="stat-card warn" onclick="setNavByPage('upcoming')">
+        <div class="stat-label">Due in 7 Days</div>
+        <div class="stat-val" id="s-due">—</div>
+        <div class="stat-sub">need immediate action</div>
+      </div>
+      <div class="stat-card red" onclick="setNavByPage('overdue')">
+        <div class="stat-label">Overdue</div>
+        <div class="stat-val" id="s-over">—</div>
+        <div class="stat-sub">past due date</div>
+      </div>
+      <div class="stat-card green" onclick="setNavByPage('sent')">
+        <div class="stat-label">Emails Sent</div>
+        <div class="stat-val" id="s-sent">—</div>
+        <div class="stat-sub">reminders dispatched</div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="section-header">
+      <div class="section-title" id="table-heading">All Renewal Records</div>
+      <div class="toolbar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search client, website, email..." id="search-input" oninput="renderTable()">
+        </div>
+        <button class="filter-btn active" onclick="setFilter(this,'all')">All</button>
+        <button class="filter-btn" onclick="setFilter(this,'Domain')">Domain</button>
+        <button class="filter-btn" onclick="setFilter(this,'Hosting')">Hosting</button>
+        <button class="filter-btn" onclick="setFilter(this,'SSL')">SSL</button>
+        <button class="filter-btn" onclick="setFilter(this,'Email')">Email</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Client</th>
+            <th>Website</th>
+            <th>Type</th>
+            <th>Due Date</th>
+            <th>Expires</th>
+            <th>Days Left</th>
+            <th>Reminder</th>
+            <th>Last Contact</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr class="loading-row"><td colspan="10">
+            <div class="spinner"></div>
+            <div style="font-size:13px;">Fetching data from Google Sheet...</div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ══ ADD CLIENT MODAL ══ -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Add New Client Renewal</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Customer ID</label><input type="text" id="f-id" placeholder="Auto or e.g. C008"></div>
+        <div class="form-group"><label>Client Name *</label><input type="text" id="f-name" placeholder="ABC Pvt Ltd"></div>
+        <div class="form-group"><label>Email Address *</label><input type="email" id="f-email" placeholder="client@example.com"></div>
+        <div class="form-group"><label>Website</label><input type="text" id="f-site" placeholder="example.com"></div>
+        <div class="form-group"><label>Renewal Type</label>
+          <select id="f-type">
+            <option>Domain Renewal</option>
+            <option>Hosting Renewal</option>
+            <option>SSL Certificate</option>
+            <option>Email Hosting</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Due Date *</label><input type="date" id="f-due"></div>
+        <div class="form-group"><label>Expires On</label><input type="date" id="f-exp"></div>
+        <div class="form-group"><label>Status</label>
+          <select id="f-status">
+            <option value="">Active</option>
+            <option>Pending</option>
+            <option>Renewed</option>
+            <option>Cancelled</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Server / Provider</label><input type="text" id="f-server" placeholder="BigRock, GoDaddy, AWS..."></div>
+        <div class="form-group"><label>Login / Account</label><input type="text" id="f-login" placeholder="admin@example.com"></div>
+      </div>
+      <div class="info-box">
+        <strong>Live connection:</strong> Clicking "Save to Sheet" sends this row directly to your Google Sheet via Apps Script <code style="background:rgba(247,191,79,0.3);padding:1px 5px;border-radius:3px;">appendRow()</code>. Data will appear in your sheet immediately.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="save-btn" onclick="saveRow()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save to Sheet
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONFIGURATION — Your Apps Script Web App URL
+// ══════════════════════════════════════════════
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx6HQc4HX9Ex38yoCh2wkZdUaRYbNiR2fjCqDMnvLKTgEbPlMVSDOrIQf-XSRrHpX3k/exec";
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let rows = [];
+let filterType = 'all';
+let navPage = 'all';
+let isLoading = false;
+
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+// ══════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════
+function daysLeft(d){
+  if(!d) return null;
+  const dt = new Date(d); dt.setHours(0,0,0,0);
+  return Math.round((dt - TODAY) / 86400000);
+}
+function fmtDate(d){
+  if(!d) return '—';
+  try{
+    const dt = new Date(d);
+    if(isNaN(dt)) return String(d);
+    return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  }catch(e){return String(d);}
+}
+function typeColor(t){
+  if(!t) return '';
+  const l = t.toLowerCase();
+  if(l.includes('domain'))  return 'badge-domain';
+  if(l.includes('hosting')) return 'badge-hosting';
+  if(l.includes('ssl'))     return 'badge-ssl';
+  return 'badge-email';
+}
+function sentBadge(s){
+  const v = String(s||'').toLowerCase();
+  if(!s || v === 'no' || v === '') return '<span class="badge badge-no">Not Sent</span>';
+  if(v === 'yes')                  return '<span class="badge badge-yes">Sent ✓</span>';
+  if(v.includes('overdue'))        return '<span class="badge badge-overdue-sent">Overdue Sent</span>';
+  return `<span class="badge badge-no">${s}</span>`;
+}
+function daysChip(d){
+  if(d === null) return '—';
+  if(d < 0)   return `<span class="days-chip days-over">Overdue ${Math.abs(d)}d</span>`;
+  if(d === 0) return `<span class="days-chip days-urgent">Due Today!</span>`;
+  if(d <= 3)  return `<span class="days-chip days-urgent">${d} day${d===1?'':'s'}</span>`;
+  if(d <= 10) return `<span class="days-chip days-warn">${d} days</span>`;
+  return `<span class="days-chip days-ok">${d} days</span>`;
+}
+
+// ══════════════════════════════════════════════
+//  FETCH DATA FROM GOOGLE SHEET
+// ══════════════════════════════════════════════
+async function loadData(){
+  setConnStatus('loading','Syncing...');
+  document.getElementById('btn-refresh').disabled = true;
+  document.getElementById('sync-text').textContent = 'Fetching from Google Sheet...';
+
+  try{
+    const res = await fetch(WEB_APP_URL + '?action=getData', {method:'GET'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const raw = await res.json();
+
+    // Map sheet columns to objects
+    // A=0:CustomerID  B=1:Name  C=2:Email  D=3:Website  E=4:Type
+    // F=5:DueDate     G=6:Expires  H=7(skip)  I=8:Status  J=9:Server
+    // K=10:Login      L=11:ReminderSent  M=12:LastContact
+    rows = raw
+      .filter(r => r[1] && r[2])   // must have name + email
+      .map((r,i) => ({
+        rowIndex : i,
+        id       : r[0]  || '',
+        name     : r[1]  || '',
+        email    : r[2]  || '',
+        site     : r[3]  || '',
+        type     : r[4]  || '',
+        due      : r[5]  ? new Date(r[5]).toISOString().slice(0,10) : '',
+        expires  : r[6]  ? new Date(r[6]).toISOString().slice(0,10) : '',
+        status   : r[8]  || '',
+        server   : r[9]  || '',
+        login    : r[10] || '',
+        sent     : r[11] || 'No',
+        lastContact: r[12] || '',
+      }));
+
+    setConnStatus('online', 'Connected · Google Sheet');
+    const now = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('sync-text').textContent = `${rows.length} records loaded`;
+    document.getElementById('sync-time').textContent = 'Last sync: ' + now;
+    renderTable();
+    showToast(`✓ ${rows.length} records loaded from Google Sheet`, 'success');
+
+  }catch(err){
+    setConnStatus('error','Connection failed');
+    document.getElementById('sync-text').textContent = 'Could not reach Google Sheet — showing cached data';
+    showToast('⚠ Could not connect to Apps Script. Check your Web App URL & permissions.', 'error');
+    console.error('Fetch error:', err);
+    // Fallback: show empty state
+    rows = [];
+    renderTable();
+  }finally{
+    document.getElementById('btn-refresh').disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════════
+//  SAVE NEW ROW → GOOGLE SHEET
+// ══════════════════════════════════════════════
+async function saveRow(){
+  const name   = document.getElementById('f-name').value.trim();
+  const email  = document.getElementById('f-email').value.trim();
+  const due    = document.getElementById('f-due').value;
+  const id     = document.getElementById('f-id').value.trim() || 'C' + String(rows.length + 1).padStart(3,'0');
+  const site   = document.getElementById('f-site').value.trim();
+  const type   = document.getElementById('f-type').value;
+  const exp    = document.getElementById('f-exp').value;
+  const status = document.getElementById('f-status').value;
+  const server = document.getElementById('f-server').value.trim();
+  const login  = document.getElementById('f-login').value.trim();
+
+  if(!name || !email || !due){
+    showToast('Please fill required fields: Name, Email, Due Date', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  // Build row array matching your sheet column order (A–M)
+  const rowData = [id, name, email, site, type, due, exp, '', status, server, login, 'No', ''];
+
+  try{
+    const res = await fetch(WEB_APP_URL, {
+      method : 'POST',
+      body   : JSON.stringify({ action:'addRow', data: rowData }),
+    });
+    const json = await res.json();
+    if(json.status === 'ok'){
+      closeModal();
+      showToast(`✓ ${name} added to Google Sheet successfully!`, 'success');
+      // Clear form
+      ['f-id','f-name','f-email','f-site','f-due','f-exp','f-server','f-login'].forEach(id=>document.getElementById(id).value='');
+      // Reload data from sheet
+      await loadData();
+    } else {
+      throw new Error('Unexpected response');
+    }
+  }catch(err){
+    showToast('⚠ Failed to save. Check Apps Script permissions (allow "Anyone").', 'error');
+    console.error('Save error:', err);
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save to Sheet`;
+  }
+}
+
+// ══════════════════════════════════════════════
+//  MARK SENT (updates sheet col L)
+// ══════════════════════════════════════════════
+async function markSent(i){
+  rows[i].sent = 'Yes';
+  renderTable();
+  try{
+    await fetch(WEB_APP_URL, {
+      method : 'POST',
+      body   : JSON.stringify({ action:'markSent', rowIndex: rows[i].rowIndex }),
+    });
+    showToast(`✓ Marked as sent for ${rows[i].name}`, 'success');
+  }catch(e){
+    showToast('Marked locally. Sheet sync failed — refresh to retry.', 'info');
+  }
+}
+
+// ══════════════════════════════════════════════
+//  RENDER TABLE
+// ══════════════════════════════════════════════
+function calcStats(){
+  const total = rows.length;
+  const due7  = rows.filter(r=>{ const d=daysLeft(r.due); return d>=0&&d<=7&&String(r.sent).toLowerCase()!=='yes'; }).length;
+  const over  = rows.filter(r=> daysLeft(r.due)<0 ).length;
+  const sent  = rows.filter(r=> r.sent==='Yes'||String(r.sent).toLowerCase().includes('overdue') ).length;
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-due').textContent   = due7;
+  document.getElementById('s-over').textContent  = over;
+  document.getElementById('s-sent').textContent  = sent;
+  // nav badges
+  document.getElementById('nb-upcoming').textContent = rows.filter(r=>{const d=daysLeft(r.due);return d>=0&&d<=30;}).length;
+  document.getElementById('nb-overdue').textContent  = over;
+}
+
+function getVisible(){
+  const q = document.getElementById('search-input').value.toLowerCase();
+  let data = [...rows];
+  if(navPage === 'upcoming') data = data.filter(r=>{ const d=daysLeft(r.due); return d>=0&&d<=30; });
+  else if(navPage === 'overdue') data = data.filter(r=> daysLeft(r.due)<0 );
+  else if(navPage === 'sent')    data = data.filter(r=> r.sent==='Yes'||String(r.sent).toLowerCase().includes('overdue') );
+  if(filterType !== 'all') data = data.filter(r=> r.type&&r.type.toLowerCase().includes(filterType.toLowerCase()) );
+  if(q) data = data.filter(r=>
+    r.name.toLowerCase().includes(q) ||
+    r.site.toLowerCase().includes(q) ||
+    r.email.toLowerCase().includes(q) ||
+    r.type.toLowerCase().includes(q)
+  );
+  return data;
+}
+
+function renderTable(){
+  calcStats();
+  const data = getVisible();
+  const tbody = document.getElementById('table-body');
+  if(!data.length){
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      ${rows.length === 0 ? 'No data loaded yet — click Refresh to fetch from Google Sheet' : 'No records match your filter'}
+    </div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((r, idx) => `
+    <tr>
+      <td style="color:var(--subtle);font-size:11px;font-weight:600;">${String(idx+1).padStart(2,'0')}</td>
+      <td>
+        <div style="font-weight:600;font-size:13px;color:var(--text);">${r.name}</div>
+        <div style="font-size:11px;color:var(--subtle);margin-top:1px;">${r.email}</div>
+      </td>
+      <td style="color:var(--brown-light);font-weight:600;">${r.site || '—'}</td>
+      <td><span class="badge ${typeColor(r.type)}">${r.type||'—'}</span></td>
+      <td style="white-space:nowrap;">${fmtDate(r.due)}</td>
+      <td style="white-space:nowrap;color:var(--subtle);font-size:12px;">${fmtDate(r.expires)}</td>
+      <td>${daysChip(daysLeft(r.due))}</td>
+      <td>${sentBadge(r.sent)}</td>
+      <td style="font-size:11px;color:var(--subtle);">${r.lastContact||'—'}</td>
+      <td style="white-space:nowrap;">
+        <button class="action-btn" title="Mark Reminder Sent" onclick="markSent(${rows.indexOf(r)})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <button class="action-btn" title="Send Email Now" onclick="emailClient('${r.email}','${r.name}','${r.type}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </button>
+      </td>
+    </tr>`).join('');
+}
+
+// ══════════════════════════════════════════════
+//  UI ACTIONS
+// ══════════════════════════════════════════════
+function emailClient(email, name, type){
+  const sub = encodeURIComponent(`Renewal Reminder: ${type}`);
+  const body = encodeURIComponent(`Dear ${name},\n\nThis is a reminder about your upcoming ${type} renewal.\n\nRegards,\nWakar Technology India Pvt Ltd`);
+  window.open(`mailto:${email}?subject=${sub}&body=${body}`);
+}
+
+function triggerReminders(){
+  showToast('ℹ To send reminders: open Apps Script → run sendRenewalReminders() or use the daily trigger.', 'info');
+}
+
+function setFilter(el, type){
+  filterType = type;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+function setNav(el, page){
+  navPage = page;
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const titles = {
+    all      : 'All Clients',
+    upcoming : 'Upcoming Renewals (30 days)',
+    overdue  : 'Overdue Renewals',
+    sent     : 'Emails Sent',
+  };
+  document.getElementById('page-title').textContent     = titles[page] || '';
+  document.getElementById('table-heading').textContent  = titles[page] || '';
+  document.getElementById('search-input').value = '';
+  renderTable();
+}
+
+function setNavByPage(page){
+  const el = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if(el) setNav(el, page);
+}
+
+function openModal(){ document.getElementById('modal').classList.add('open'); }
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
+
+function setConnStatus(state, label){
+  const dot = document.getElementById('conn-dot');
+  dot.className = 'conn-dot ' + state;
+  document.getElementById('conn-label').textContent = label;
+}
+
+function showToast(msg, type='success'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=> t.classList.remove('show'), 4000);
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+loadData();
+</script>
+</body>
+</html>
