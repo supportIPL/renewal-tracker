@@ -54,8 +54,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .btn-primary:hover{background:var(--gold-dark);color:#fff;}
 .btn-outline{background:transparent;color:var(--brown);border:1.5px solid var(--gold-border);}
 .btn-outline:hover{background:var(--gold-pale);}
-.btn-danger{background:#fee2e2;color:var(--danger);border:1px solid #fca5a5;}
-.btn-danger:hover{background:var(--danger);color:#fff;}
 .btn svg{width:14px;height:14px;}
 .btn:disabled{opacity:.5;cursor:not-allowed;}
 .content{flex:1;padding:24px 28px;}
@@ -106,10 +104,8 @@ tr:hover td{background:rgba(253,243,216,0.5);}
 .days-over{background:#fde8e8;color:#b91c1c;}
 .action-btn{width:30px;height:30px;border-radius:7px;border:1.5px solid var(--gold-border);background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .15s;margin-right:4px;}
 .action-btn:hover{background:var(--gold);border-color:var(--gold);}
-.action-btn.del:hover{background:#fee2e2;border-color:#fca5a5;}
 .action-btn svg{width:13px;height:13px;color:var(--muted);}
 .action-btn:hover svg{color:var(--brown);}
-.action-btn.del:hover svg{color:var(--danger);}
 
 /* ── LOADING / EMPTY ── */
 .loading-row td{text-align:center;padding:40px;color:var(--muted);}
@@ -355,7 +351,7 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(247,
         <div class="form-group"><label>Login / Account</label><input type="text" id="f-login" placeholder="admin@example.com"></div>
       </div>
       <div class="info-box">
-        <strong>Live connection:</strong> Clicking "Save to Sheet" sends this row directly to your Google Sheet via Apps Script <code style="background:rgba(247,191,79,0.3);padding:1px 5px;border-radius:3px;">appendRow()</code>. Data will appear in your sheet immediately.
+        <strong>Live connection:</strong> Clicking "Save to Sheet" sends this row directly to your Google Sheet via Apps Script using a JSONP GET request (CORS-safe). Data will appear in your sheet immediately.
       </div>
     </div>
     <div class="modal-foot">
@@ -382,9 +378,42 @@ const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwknfN3R4YVHmaJWBJE
 let rows = [];
 let filterType = 'all';
 let navPage = 'all';
-let isLoading = false;
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+// ══════════════════════════════════════════════
+//  CORE JSONP HELPER — ALL requests go through here
+//  This is the ONLY way to call Apps Script from
+//  a browser without hitting CORS errors.
+// ══════════════════════════════════════════════
+function callJsonp(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const qs = Object.entries(params)
+      .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v))
+      .join('&');
+    const script = document.createElement('script');
+    script.src = WEB_APP_URL + '?callback=' + cbName + '&' + qs;
+    script.onerror = () => {
+      delete window[cbName];
+      document.body.removeChild(script);
+      reject(new Error('Script load failed'));
+    };
+    window[cbName] = (data) => {
+      delete window[cbName];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      resolve(data);
+    };
+    document.body.appendChild(script);
+    setTimeout(() => {
+      if (window[cbName]) {
+        delete window[cbName];
+        if (document.body.contains(script)) document.body.removeChild(script);
+        reject(new Error('Request timed out'));
+      }
+    }, 20000);
+  });
+}
 
 // ══════════════════════════════════════════════
 //  HELPERS
@@ -429,35 +458,17 @@ function daysChip(d){
 // ══════════════════════════════════════════════
 //  FETCH DATA FROM GOOGLE SHEET
 // ══════════════════════════════════════════════
-
-// Replace this in loadData():
-// const res = await fetch(WEB_APP_URL + '?action=getData', {method:'GET'});
-// const raw = await res.json();
-
-// With this JSONP version:
-function loadDataJsonp() {
-  return new Promise((resolve, reject) => {
-    const cbName = 'cb_' + Date.now();
-    const script = document.createElement('script');
-    script.src = WEB_APP_URL + '?action=getData&callback=' + cbName;
-    script.onerror = () => reject(new Error('Script load failed'));
-    window[cbName] = (data) => {
-      delete window[cbName];
-      document.body.removeChild(script);
-      resolve(data);
-    };
-    document.body.appendChild(script);
-    setTimeout(() => reject(new Error('Timeout')), 15000);
-  });
-}
-
 async function loadData() {
   setConnStatus('loading', 'Syncing...');
   document.getElementById('btn-refresh').disabled = true;
   document.getElementById('sync-text').textContent = 'Fetching from Google Sheet...';
 
   try {
-    const raw = await loadDataJsonp();   // <-- JSONP call
+    const raw = await callJsonp({ action: 'getData' });
+
+    if (!Array.isArray(raw)) {
+      throw new Error('Unexpected response format');
+    }
 
     rows = raw
       .filter(r => r[1] && r[2])
@@ -487,7 +498,7 @@ async function loadData() {
   } catch(err) {
     setConnStatus('error', 'Connection failed');
     document.getElementById('sync-text').textContent = 'Could not reach Google Sheet';
-    showToast('⚠ CORS error. Re-deploy your Apps Script as a new version.', 'error');
+    showToast('⚠ Failed to connect. Check your Apps Script URL and deployment settings.', 'error');
     console.error('Fetch error:', err);
     rows = [];
     renderTable();
@@ -496,9 +507,9 @@ async function loadData() {
   }
 }
 
-
 // ══════════════════════════════════════════════
 //  SAVE NEW ROW → GOOGLE SHEET
+//  Uses JSONP GET (no CORS issues)
 // ══════════════════════════════════════════════
 async function saveRow(){
   const name   = document.getElementById('f-name').value.trim();
@@ -524,45 +535,50 @@ async function saveRow(){
   // Build row array matching your sheet column order (A–M)
   const rowData = [id, name, email, site, type, due, exp, '', status, server, login, 'No', ''];
 
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method : 'POST',
-      body   : JSON.stringify({ action:'addRow', data: rowData }),
+  try {
+    // ✅ JSONP GET — no CORS issues
+    const result = await callJsonp({
+      action : 'addRow',
+      data   : JSON.stringify(rowData)
     });
-    const json = await res.json();
-    if(json.status === 'ok'){
+
+    if (result && result.status === 'ok') {
       closeModal();
       showToast(`✓ ${name} added to Google Sheet successfully!`, 'success');
-      // Clear form
-      ['f-id','f-name','f-email','f-site','f-due','f-exp','f-server','f-login'].forEach(id=>document.getElementById(id).value='');
+      // Clear form fields
+      ['f-id','f-name','f-email','f-site','f-due','f-exp','f-server','f-login'].forEach(fid => {
+        document.getElementById(fid).value = '';
+      });
       // Reload data from sheet
       await loadData();
     } else {
-      throw new Error('Unexpected response');
+      throw new Error('Apps Script returned error status');
     }
-  }catch(err){
-    showToast('⚠ Failed to save. Check Apps Script permissions (allow "Anyone").', 'error');
+  } catch(err) {
+    showToast('⚠ Failed to save. Make sure Apps Script is deployed as "Anyone" and redeployed.', 'error');
     console.error('Save error:', err);
-  }finally{
+  } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save to Sheet`;
   }
 }
 
 // ══════════════════════════════════════════════
-//  MARK SENT (updates sheet col L)
+//  MARK SENT — updates sheet col L via JSONP GET
 // ══════════════════════════════════════════════
 async function markSent(i){
   rows[i].sent = 'Yes';
   renderTable();
-  try{
-    await fetch(WEB_APP_URL, {
-      method : 'POST',
-      body   : JSON.stringify({ action:'markSent', rowIndex: rows[i].rowIndex }),
+  try {
+    // ✅ JSONP GET — no CORS issues
+    await callJsonp({
+      action   : 'markSent',
+      rowIndex : String(rows[i].rowIndex)
     });
     showToast(`✓ Marked as sent for ${rows[i].name}`, 'success');
-  }catch(e){
-    showToast('Marked locally. Sheet sync failed — refresh to retry.', 'info');
+  } catch(e) {
+    showToast('Marked locally. Sheet sync failed — click Refresh to retry.', 'info');
+    console.error('markSent error:', e);
   }
 }
 
@@ -578,7 +594,6 @@ function calcStats(){
   document.getElementById('s-due').textContent   = due7;
   document.getElementById('s-over').textContent  = over;
   document.getElementById('s-sent').textContent  = sent;
-  // nav badges
   document.getElementById('nb-upcoming').textContent = rows.filter(r=>{const d=daysLeft(r.due);return d>=0&&d<=30;}).length;
   document.getElementById('nb-overdue').textContent  = over;
 }
@@ -639,7 +654,7 @@ function renderTable(){
 //  UI ACTIONS
 // ══════════════════════════════════════════════
 function emailClient(email, name, type){
-  const sub = encodeURIComponent(`Renewal Reminder: ${type}`);
+  const sub  = encodeURIComponent(`Renewal Reminder: ${type}`);
   const body = encodeURIComponent(`Dear ${name},\n\nThis is a reminder about your upcoming ${type} renewal.\n\nRegards,\nWakar Technology India Pvt Ltd`);
   window.open(`mailto:${email}?subject=${sub}&body=${body}`);
 }
@@ -665,8 +680,8 @@ function setNav(el, page){
     overdue  : 'Overdue Renewals',
     sent     : 'Emails Sent',
   };
-  document.getElementById('page-title').textContent     = titles[page] || '';
-  document.getElementById('table-heading').textContent  = titles[page] || '';
+  document.getElementById('page-title').textContent    = titles[page] || '';
+  document.getElementById('table-heading').textContent = titles[page] || '';
   document.getElementById('search-input').value = '';
   renderTable();
 }
@@ -692,7 +707,7 @@ function showToast(msg, type='success'){
   t.className = 'toast ' + type;
   t.classList.add('show');
   clearTimeout(t._timer);
-  t._timer = setTimeout(()=> t.classList.remove('show'), 4000);
+  t._timer = setTimeout(()=> t.classList.remove('show'), 4500);
 }
 
 // ══════════════════════════════════════════════
