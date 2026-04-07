@@ -374,7 +374,7 @@ input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(247,
 // ══════════════════════════════════════════════
 //  CONFIGURATION — Your Apps Script Web App URL
 // ══════════════════════════════════════════════
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby5Z7qXb_mYJMyH_LWxNBsUFAovVE-Ga2FwxzSZBuurFmCntQuryPrGb5Y2K9S_XlbA/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx5nBLW-IjZuiPKeHJ7MPe5ZgWm8GRCGAEF9Nt_THOv7dmaxytpukwdXHYM1MgRvrO8/exec";
 
 // ══════════════════════════════════════════════
 //  STATE
@@ -429,57 +429,73 @@ function daysChip(d){
 // ══════════════════════════════════════════════
 //  FETCH DATA FROM GOOGLE SHEET
 // ══════════════════════════════════════════════
-async function loadData(){
-  setConnStatus('loading','Syncing...');
+
+// Replace this in loadData():
+// const res = await fetch(WEB_APP_URL + '?action=getData', {method:'GET'});
+// const raw = await res.json();
+
+// With this JSONP version:
+function loadDataJsonp() {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    script.src = WEB_APP_URL + '?action=getData&callback=' + cbName;
+    script.onerror = () => reject(new Error('Script load failed'));
+    window[cbName] = (data) => {
+      delete window[cbName];
+      document.body.removeChild(script);
+      resolve(data);
+    };
+    document.body.appendChild(script);
+    setTimeout(() => reject(new Error('Timeout')), 15000);
+  });
+}
+
+async function loadData() {
+  setConnStatus('loading', 'Syncing...');
   document.getElementById('btn-refresh').disabled = true;
   document.getElementById('sync-text').textContent = 'Fetching from Google Sheet...';
 
-  try{
-    const res = await fetch(WEB_APP_URL + '?action=getData', {method:'GET'});
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const raw = await res.json();
+  try {
+    const raw = await loadDataJsonp();   // <-- JSONP call
 
-    // Map sheet columns to objects
-    // A=0:CustomerID  B=1:Name  C=2:Email  D=3:Website  E=4:Type
-    // F=5:DueDate     G=6:Expires  H=7(skip)  I=8:Status  J=9:Server
-    // K=10:Login      L=11:ReminderSent  M=12:LastContact
     rows = raw
-      .filter(r => r[1] && r[2])   // must have name + email
-      .map((r,i) => ({
-        rowIndex : i,
-        id       : r[0]  || '',
-        name     : r[1]  || '',
-        email    : r[2]  || '',
-        site     : r[3]  || '',
-        type     : r[4]  || '',
-        due      : r[5]  ? new Date(r[5]).toISOString().slice(0,10) : '',
-        expires  : r[6]  ? new Date(r[6]).toISOString().slice(0,10) : '',
-        status   : r[8]  || '',
-        server   : r[9]  || '',
-        login    : r[10] || '',
-        sent     : r[11] || 'No',
-        lastContact: r[12] || '',
+      .filter(r => r[1] && r[2])
+      .map((r, i) => ({
+        rowIndex    : i,
+        id          : r[0]  || '',
+        name        : r[1]  || '',
+        email       : r[2]  || '',
+        site        : r[3]  || '',
+        type        : r[4]  || '',
+        due         : r[5]  ? new Date(r[5]).toISOString().slice(0,10) : '',
+        expires     : r[6]  ? new Date(r[6]).toISOString().slice(0,10) : '',
+        status      : r[8]  || '',
+        server      : r[9]  || '',
+        login       : r[10] || '',
+        sent        : r[11] || 'No',
+        lastContact : r[12] || '',
       }));
 
     setConnStatus('online', 'Connected · Google Sheet');
-    const now = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+    const now = new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
     document.getElementById('sync-text').textContent = `${rows.length} records loaded`;
     document.getElementById('sync-time').textContent = 'Last sync: ' + now;
     renderTable();
     showToast(`✓ ${rows.length} records loaded from Google Sheet`, 'success');
 
-  }catch(err){
-    setConnStatus('error','Connection failed');
-    document.getElementById('sync-text').textContent = 'Could not reach Google Sheet — showing cached data';
-    showToast('⚠ Could not connect to Apps Script. Check your Web App URL & permissions.', 'error');
+  } catch(err) {
+    setConnStatus('error', 'Connection failed');
+    document.getElementById('sync-text').textContent = 'Could not reach Google Sheet';
+    showToast('⚠ CORS error. Re-deploy your Apps Script as a new version.', 'error');
     console.error('Fetch error:', err);
-    // Fallback: show empty state
     rows = [];
     renderTable();
-  }finally{
+  } finally {
     document.getElementById('btn-refresh').disabled = false;
   }
 }
+
 
 // ══════════════════════════════════════════════
 //  SAVE NEW ROW → GOOGLE SHEET
